@@ -1,0 +1,41 @@
+---
+dependency:
+  name: galaxy
+  options:
+    role-file: ./requirements.yml
+    requirements-file: ./requirements.yml
+
+driver:
+  name: docker
+  
+platforms:
+  - name: server
+    image: ${MOLECULE_DISTRO:-ghcr.io/nestybox/ubuntu-jammy-systemd-docker:rodny-new}
+    command: ${MOLECULE_DOCKER_COMMAND:-""}
+    runtime: sysbox-runc
+    published_ports:
+      - 22/tcp
+    groups:
+      - server
+    privileged: true
+    networks:
+      - name: k3snet
+
+provisioner:
+  name: ansible
+
+verifier:
+  name: ansible
+
+scenario:
+  name: k3s-tailscale
+  test_sequence:
+    - dependency
+    - destroy
+    - syntax
+    - create
+    - prepare
+    - converge
+    - verify
+    - cleanup
+    - destroy

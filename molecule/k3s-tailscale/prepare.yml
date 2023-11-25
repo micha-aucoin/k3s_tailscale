@@ -1,0 +1,66 @@
+---
+
+- name: install tailscale
+  hosts: server
+  tasks:
+    - name: Set custom up argument
+      ansible.builtin.set_fact:
+        tailscale_args: "--advertise-tags=tag:k3s-server"
+
+    - name: Init tailscale credentials variables
+      ansible.builtin.include_tasks: ../default/init_tailscale_vars.yml
+
+    - name: Install Tailscale with custom up argument
+      ansible.builtin.include_role:
+        name: artis3n.tailscale
+
+    - name: Set Tailscale IP address
+      ansible.builtin.command:
+        cmd: tailscale ip -4
+      register: tailscale_ip
+
+    - name: Add tailsclae ip to inventory
+      add_host:
+        name: "{{ tailscale_ip.stdout }}"
+        groups: tailscale_hosts
+        ansible_ssh_extra_args: "-o StrictHostKeyChecking=no"
+        ansible_user: 'admin'
+        ansible_ssh_pass: 'admin'
+        ansible_become_pass: 'admin'
+      when: tailscale_ip.stdout is defined
+      changed_when: False
+
+
+- name: Prepare all nodes
+  hosts: tailscale_hosts
+  become: true
+  tasks:
+    - name: Ensure apt cache is updated
+      ansible.builtin.apt:
+        update_cache: true
+      when: ansible_pkg_mgr == 'apt'
+
+    - name: Ensure sudo is installed
+      community.general.apk:
+        name: sudo
+        state: present
+        update_cache: true
+      when: ansible_pkg_mgr == 'apk'
+
+- name: Prepare nodes
+  hosts: tailscale_hosts
+  become: true
+  tasks:
+    - name: Ensure apt cache is updated and iptables is installed
+      ansible.builtin.apt:
+        name: iptables
+        state: present
+        update_cache: true
+      when: ansible_pkg_mgr == 'apt'
+
+    - name: Ensure iproute is installed
+      ansible.builtin.dnf:
+        name: iproute
+        state: present
+        update_cache: true
+      when: ansible_pkg_mgr == 'dnf'

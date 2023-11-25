@@ -1,0 +1,23 @@
+---
+- name: Converge
+  hosts: server
+  tasks:
+    - name: Set custom up argument
+      ansible.builtin.set_fact:
+        tailscale_args: "--advertise-tags=tag:k3s-server"
+
+    - name: Init tailscale credentials variables
+      ansible.builtin.include_tasks: ../default/init_tailscale_vars.yml
+
+    - name: Install Tailscale with custom up argument
+      ansible.builtin.include_role:
+        name: artis3n.tailscale
+
+    - name: Set Tailscale IP address
+      ansible.builtin.command:
+        cmd: tailscale ip -4
+      register: tailscale_ip
+
+    - name: Debug Tailscale IP address
+      debug:
+        msg: "Tailscale IP address is {{ tailscale_ip.stdout }}"

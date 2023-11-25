@@ -1,0 +1,68 @@
+---
+dependency:
+  name: galaxy
+  options:
+    role-file: ./requirements.yml
+    requirements-file: ./requirements.yml
+
+driver:
+  name: docker
+
+platforms:
+  - name: control-plane-1
+    image: ${MOLECULE_DISTRO:-ghcr.io/nestybox/ubuntu-jammy-systemd-docker:rodny-new}
+    command: ${MOLECULE_DOCKER_COMMAND:-""}
+    runtime: sysbox-runc
+    published_ports:
+      - 22/tcp
+    groups:
+      - k3s_cluster
+      - server
+    privileged: true
+    networks:
+      - name: k3snet
+
+  - name: control-plane-2
+    image: ${MOLECULE_DISTRO:-ghcr.io/nestybox/ubuntu-jammy-systemd-docker:rodny-new}
+    command: ${MOLECULE_DOCKER_COMMAND:-""}
+    runtime: sysbox-runc
+    published_ports:
+      - 22/tcp
+    groups:
+      - k3s_cluster
+      - server
+    privileged: true
+    networks:
+      - name: k3snet
+
+  - name: control-plane-3
+    image: ${MOLECULE_DISTRO:-ghcr.io/nestybox/ubuntu-jammy-systemd-docker:rodny-new}
+    command: ${MOLECULE_DOCKER_COMMAND:-""}
+    runtime: sysbox-runc
+    published_ports:
+      - 22/tcp
+    groups:
+      - k3s_cluster
+      - server
+    privileged: true
+    networks:
+      - name: k3snet
+
+provisioner:
+  name: ansible
+
+verifier:
+  name: ansible
+
+scenario:
+  name: tailscale-servers-up
+  test_sequence:
+    - dependency
+    - destroy
+    - syntax
+    - create
+    - prepare
+    - converge
+    - verify
+    - cleanup
+    - destroy
