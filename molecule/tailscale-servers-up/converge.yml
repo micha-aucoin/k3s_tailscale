@@ -1,10 +1,16 @@
 ---
 - name: Converge
-  hosts: server
+  hosts: server:agent
   tasks:
-    - name: Set custom up argument
+    - name: Set custom up argument for server
       ansible.builtin.set_fact:
         tailscale_args: "--advertise-tags=tag:k3s-server"
+      when: inventory_hostname in groups['server']
+
+    - name: Set custom up argument
+      ansible.builtin.set_fact:
+        tailscale_args: "--advertise-tags=tag:k3s-agent"
+      when: inventory_hostname in groups['agent']
 
     - name: Init tailscale credentials variables
       ansible.builtin.include_tasks: ../default/init_tailscale_vars.yml
@@ -18,6 +24,19 @@
         cmd: tailscale ip -4
       register: tailscale_ip
 
-    - name: Debug Tailscale IP address
+    - name: Grab Tailscale Status
+      ansible.builtin.command:
+        cmd: tailscale status --json
+      register: tailscale_status
+
+    - name: Parse JSON from tailscale_status
+      ansible.builtin.set_fact:
+        tag: "{{ (tailscale_status.stdout | from_json)['Self']['Tags'][0] | regex_replace('^tag:\\s*', '') }}"
+
+    - name: Debug Tailscale Tag
       debug:
-        msg: "Tailscale IP address is {{ tailscale_ip.stdout }}"
+        msg: "Tailscale Tag: {{ tag }}"
+
+    - name: Debug Tailscale IP
+      debug:
+        msg: "TailScale IP: {{ tailscale_ip.stdout }}"
