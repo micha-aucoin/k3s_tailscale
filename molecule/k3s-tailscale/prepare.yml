@@ -1,11 +1,23 @@
 ---
 
-- name: install tailscale
-  hosts: server
+- name: Prepare
+  hosts: server:agent:loadbalancer
+  tags: tailscale_init
   tasks:
-    - name: Set custom up argument
+    - name: Set custom up argument for server
       ansible.builtin.set_fact:
         tailscale_args: "--advertise-tags=tag:k3s-server"
+      when: inventory_hostname in groups['server']
+
+    - name: Set custom up argument
+      ansible.builtin.set_fact:
+        tailscale_args: "--advertise-tags=tag:k3s-agent"
+      when: inventory_hostname in groups['agent']
+
+    - name: Set custom up argument
+      ansible.builtin.set_fact:
+        tailscale_args: "--advertise-tags=tag:k3s-loadbalancer"
+      when: inventory_hostname in groups['loadbalancer']
 
     - name: Init tailscale credentials variables
       ansible.builtin.include_tasks: ../default/init_tailscale_vars.yml
@@ -18,18 +30,35 @@
       ansible.builtin.command:
         cmd: tailscale ip -4
       register: tailscale_ip
+      tags: always
 
+    - name: Grab Tailscale Status
+      ansible.builtin.command:
+        cmd: tailscale status --json
+      register: tailscale_status
+      tags: always
+
+    - name: Set Tailscale Tag
+      ansible.builtin.set_fact:
+        tailscale_tag: "{{ (tailscale_status.stdout | from_json)['Self']['Tags'][0] | regex_replace('^tag:\\s*', '') }}"
+      tags: always
+
+- name: Prepare
+  hosts: localhost
+  tags: always
+  tasks:
     - name: Add tailsclae ip to inventory
       add_host:
-        name: "{{ tailscale_ip.stdout }}"
+        name: "{{ hostvars[item].tailscale_ip.stdout }}"
         groups: tailscale_hosts
         ansible_ssh_extra_args: "-o StrictHostKeyChecking=no"
         ansible_user: 'admin'
         ansible_ssh_pass: 'admin'
         ansible_become_pass: 'admin'
-      when: tailscale_ip.stdout is defined
+        tailscale_tag: "{{ hostvars[item].tailscale_tag }}"
+      loop: "{{ groups['server'] + groups['agent'] + groups['loadbalancer'] }}"
+      when: hostvars[item].tailscale_ip.stdout is defined and hostvars[item].tailscale_tag is defined
       changed_when: False
-
 
 - name: Prepare all nodes
   hosts: tailscale_hosts
@@ -47,20 +76,48 @@
         update_cache: true
       when: ansible_pkg_mgr == 'apk'
 
-- name: Prepare nodes
-  hosts: tailscale_hosts
-  become: true
-  tasks:
-    - name: Ensure apt cache is updated and iptables is installed
+    - name: Prepare Load Balancer | Ensure HAProxy is installed
+      ansible.builtin.package:
+        name: haproxy
+        state: present
+      when: tailscale_tag == 'k3s-loadbalancer'
+
+    - name: Prepare Load Balancer | Ensure HAProxy config directory exists
+      ansible.builtin.file:
+        path: /usr/local/etc/haproxy
+        state: directory
+        mode: 0755
+      when: tailscale_tag == 'k3s-loadbalancer'
+
+    - name: Prepare Load Balancer | Ensure HAProxy is configured
+      ansible.builtin.template:
+        src: haproxy-loadbalancer.conf.j2
+        dest: /usr/local/etc/haproxy/haproxy.cfg
+        mode: 0644
+      when: tailscale_tag == 'k3s-loadbalancer'
+      tags: config_haproxy
+
+    - name: Prepare Load Balancer | Ensure HAProxy service is started
+      ansible.builtin.command:
+        cmd: haproxy -D -f /usr/local/etc/haproxy/haproxy.cfg -p /var/run/haproxy.pid
+      args:
+        creates: /var/run/haproxy.pid
+      when: tailscale_tag == 'k3s-loadbalancer'
+
+    - name: Prepare server/agent | Ensure apt cache is updated and iptables is installed
       ansible.builtin.apt:
         name: iptables
         state: present
         update_cache: true
-      when: ansible_pkg_mgr == 'apt'
+      when: 
+        - ansible_pkg_mgr == 'apt'
+        - tailscale_tag == 'k3s-server' or tailscale_tag == 'k3s-agent'
 
-    - name: Ensure iproute is installed
+    - name: Prepare server/agent | Ensure iproute is installed
       ansible.builtin.dnf:
         name: iproute
         state: present
         update_cache: true
-      when: ansible_pkg_mgr == 'dnf'
+      when: 
+        - ansible_pkg_mgr == 'dnf'
+        - tailscale_tag == 'k3s-server' or tailscale_tag == 'k3s-agent'

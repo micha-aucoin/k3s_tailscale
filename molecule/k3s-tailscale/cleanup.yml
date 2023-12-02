@@ -1,36 +1,19 @@
 ---
 
-- name: Converge
-  hosts: server
-  tasks:
-    - name: Set Tailscale IP address
-      ansible.builtin.command:
-        cmd: tailscale ip -4
-      register: tailscale_ip
-
-    - name: Add tailsclae ip to inventory
-      add_host:
-        name: "{{ tailscale_ip.stdout }}"
-        groups: tailscale_hosts
-        ansible_ssh_extra_args: "-o StrictHostKeyChecking=no"
-        ansible_user: 'admin'
-        ansible_ssh_pass: 'admin'
-        ansible_become_pass: 'admin'
-      when: tailscale_ip.stdout is defined
-      changed_when: False
-
 - name: Cleanup
-  hosts: tailscale_hosts
+  hosts: k3s_cluster
   become: true
   vars:
     molecule_is_test: true
-    k3s_become: true
     k3s_state: uninstalled
+    # k3s_release_version: "v1.21"
+    # k3s_etcd_datastore: true
+    # k3s_use_experimental: true
   roles:
-    - role: ../../roles/xanmanning.k3s
+    - role: xanmanning.k3s
 
 - name: Cleanup
-  hosts: server
+  hosts: k3s_cluster
   tasks:
     - name: De-register Tailscale node
       become: true
