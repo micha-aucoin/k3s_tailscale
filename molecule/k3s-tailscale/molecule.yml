@@ -103,8 +103,8 @@ platforms:
 
 provisioner:
   name: ansible
-  options:
-    verbose: true
+  # options:
+  #   verbose: true
   # config_options:
   #   tags:
   #     run: config_haproxy #kubeconfig,tailscale_init

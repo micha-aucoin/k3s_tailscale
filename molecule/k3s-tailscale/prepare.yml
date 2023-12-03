@@ -91,7 +91,7 @@
 
     - name: Prepare Load Balancer | Ensure HAProxy is configured
       ansible.builtin.template:
-        src: haproxy-loadbalancer.conf.j2
+        src: templates/haproxy-loadbalancer.conf.j2
         dest: /usr/local/etc/haproxy/haproxy.cfg
         mode: 0644
       when: tailscale_tag == 'k3s-loadbalancer'

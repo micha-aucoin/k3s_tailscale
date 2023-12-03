@@ -9,7 +9,7 @@ backend control_nodes
     balance roundrobin
 {% for host in groups['tailscale_hosts'] %}
 {% if hostvars[host].tailscale_tag == 'k3s-server' %}
-    server server{{ loop.index }} {{ host }}:6443 check
+    server server-{{ loop.index }} {{ host }}:6443 check
 {% endif %}
 {% endfor %}
     timeout connect 30s

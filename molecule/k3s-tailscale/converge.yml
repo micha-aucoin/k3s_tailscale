@@ -4,50 +4,68 @@
   hosts: server:agent
   tags: always
   tasks:
-    - name: Set Tailscale server IP address
+    - name: Set Tailscale IP address
       ansible.builtin.command:
         cmd: tailscale ip -4
-      register: tailscale_server_ip
-      when: inventory_hostname in groups['server']
+      register: tailscale_ip
 
-    - name: Set Tailscale agent IP address
+    - name: Grab Tailscale Status
       ansible.builtin.command:
-        cmd: tailscale ip -4
-      register: tailscale_agent_ip
-      when: inventory_hostname in groups['agent']
+        cmd: tailscale status --json
+      register: tailscale_status
+
+    - name: Parse JSON from tailscale_status
+      ansible.builtin.set_fact:
+        tailscale_tag: "{{ (tailscale_status.stdout | from_json)['Self']['Tags'][0] | regex_replace('^tag:\\s*', '') }}"
+
 
 - name: Converge
   hosts: localhost
   tags: always
   tasks:
-    - name: Add tailscale IP to inventory for both servers and agents
+    - name: Add tailscale IP to inventory
       add_host:
-        name: "{{ (hostvars[item].tailscale_server_ip.stdout if item in groups['server'] else hostvars[item].tailscale_agent_ip.stdout) }}"
-        groups: tailscale_k3s_hosts
+        name: "{{ hostvars[item].tailscale_ip.stdout }}"
+        groups: tailscale_hosts
         ansible_ssh_extra_args: "-o StrictHostKeyChecking=no"
         ansible_user: 'admin'
         ansible_ssh_pass: 'admin'
         ansible_become_pass: 'admin'
-        k3s_control_node: "{{ item in groups['server'] }}"
+        tailscale_tag: "{{ hostvars[item].tailscale_tag }}"
       loop: "{{ groups['server'] + groups['agent'] }}"
-      when: 
-        - "'tailscale_server_ip' in hostvars[item] or 'tailscale_agent_ip' in hostvars[item]"
-        - "(item in groups['server'] and hostvars[item].tailscale_server_ip.stdout is defined) or (item in groups['agent'] and hostvars[item].tailscale_agent_ip.stdout is defined)"
+      when: hostvars[item].tailscale_ip.stdout is defined and hostvars[item].tailscale_tag is defined
       changed_when: False
 
 - name: Converge
-  hosts: tailscale_k3s_hosts
+  hosts: tailscale_hosts
   vars:
     molecule_is_test: true
     k3s_become: true
-    k3s_release_version: "v1.21"
+    k3s_release_version: "v1.25.11+k3s1"
     k3s_etcd_datastore: true
     k3s_use_experimental: true
+    vpn_auth: "{{ 'name=tailscale,joinKey=' + lookup('ansible.builtin.env', 'TAILSCALE_VPN_AUTH') }}"
+    client_id: "{{ lookup('ansible.builtin.env', 'TAILSCALE_CLIENT_ID') }}"
+    client_secret: "{{ lookup('ansible.builtin.env', 'TAILSCALE_CLIENT_SECRET') }}"
+    k3s_server_manifests_templates:
+      - "templates/operator.yml.j2"
+      - "templates/authproxy-rbac.yml.j2"
+      - "templates/proxy.yml.j2"
+      - "templates/userspace-proxy.yml.j2"
     k3s_server:
       secrets-encryption: true
       write-kubeconfig-mode: '0644'
+      vpn-auth: "{{ vpn_auth }}"
+      disable:
+        - servicelb
+        - traefik
     k3s_agent:
-      node-ip: "{{ ansible_default_ipv4.address }}"
+      vpn-auth: "{{ vpn_auth }}"
+  pre_tasks:
+    - name: Set each node to be a control node
+      ansible.builtin.set_fact:
+        k3s_control_node: true
+      when: tailscale_tag == 'k3s-server'
   roles:
     - role: xanmanning.k3s
 
