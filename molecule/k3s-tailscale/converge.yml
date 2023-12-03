@@ -4,11 +4,6 @@
   hosts: server:agent
   tags: always
   tasks:
-    - name: Set Tailscale IP address
-      ansible.builtin.command:
-        cmd: tailscale ip -4
-      register: tailscale_ip
-
     - name: Grab Tailscale Status
       ansible.builtin.command:
         cmd: tailscale status --json
@@ -16,8 +11,17 @@
 
     - name: Parse JSON from tailscale_status
       ansible.builtin.set_fact:
-        tailscale_tag: "{{ (tailscale_status.stdout | from_json)['Self']['Tags'][0] | regex_replace('^tag:\\s*', '') }}"
+        tailscale_ip: "{{ (tailscale_status.stdout | from_json)['Self']['TailscaleIPs'][0] }}"
+        tailscale_hostname: "{{ (tailscale_status.stdout | from_json)['Self']['HostName'] }}"
 
+    - name: Determine groups 
+      ansible.builtin.set_fact:
+        dynamic_group: >
+          {{
+            'tailscale_server' if tailscale_hostname is regex('server.*') else
+            'tailscale_agent' if tailscale_hostname is regex('agent.*') else
+            None
+          }}
 
 - name: Converge
   hosts: localhost
@@ -25,19 +29,22 @@
   tasks:
     - name: Add tailscale IP to inventory
       add_host:
-        name: "{{ hostvars[item].tailscale_ip.stdout }}"
-        groups: tailscale_hosts
+        name: "{{ hostvars[item].tailscale_ip }}"
+        groups: "{{ hostvars[item].dynamic_group }}"
         ansible_ssh_extra_args: "-o StrictHostKeyChecking=no"
         ansible_user: 'admin'
         ansible_ssh_pass: 'admin'
         ansible_become_pass: 'admin'
-        tailscale_tag: "{{ hostvars[item].tailscale_tag }}"
+        tailscale_hostname: "{{ hostvars[item].tailscale_hostname }}"
       loop: "{{ groups['server'] + groups['agent'] }}"
-      when: hostvars[item].tailscale_ip.stdout is defined and hostvars[item].tailscale_tag is defined
+      when: 
+        - hostvars[item].tailscale_ip is defined
+        - hostvars[item].tailscale_hostname is defined
+        - hostvars[item].dynamic_group is defined
       changed_when: False
 
 - name: Converge
-  hosts: tailscale_hosts
+  hosts: tailscale_server:tailscale_agent
   vars:
     molecule_is_test: true
     k3s_become: true
@@ -65,7 +72,7 @@
     - name: Set each node to be a control node
       ansible.builtin.set_fact:
         k3s_control_node: true
-      when: tailscale_tag == 'k3s-server'
+      when: inventory_hostname in groups['tailscale_server']
   roles:
     - role: xanmanning.k3s
 
@@ -74,10 +81,6 @@
       ansible.builtin.stat:
         path: /etc/rancher/k3s/k3s.yaml
       register: k3s_yaml_stat
-      tags: kubeconfig
-
-    - name: debug through ansible.env
-      debug: var=ansible_user_dir
       tags: kubeconfig
 
     - name: Ensure .kube directory exists
@@ -97,7 +100,7 @@
         remote_src: true
         owner: "{{ ansible_user }}"
         group: "{{ ansible_user }}"
-        mode: '0644'
+        mode: '0600'
       when: k3s_yaml_stat.stat.exists
       tags: kubeconfig
 
