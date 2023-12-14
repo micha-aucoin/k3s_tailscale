@@ -1,0 +1,22 @@
+---
+
+- name: Install Tailscale
+  hosts: k3s_cluster
+  tasks:
+    - name: Use tailscale service
+      ansible.builtin.set_fact:
+        tailscale_authkey: "{{ lookup('ansible.builtin.env', 'TAILSCALE_KEY') }}"
+
+    - name: Set custom up argument for server
+      ansible.builtin.set_fact:
+        tailscale_args: "--advertise-tags tag:server"
+      when: inventory_hostname in groups['server']
+
+    - name: Set custom up argument
+      ansible.builtin.set_fact:
+        tailscale_args: "--advertise-tags tag:agent"
+      when: inventory_hostname in groups['agent']
+
+    - name: Install Tailscale with custom up argument
+      ansible.builtin.include_role:
+        name: artis3n.tailscale
