@@ -1,0 +1,8 @@
+---
+- name: Delete k3s-agents infrastructure
+  hosts: localhost
+  vars_files:
+    - config.yml
+  roles:
+    - role: destroy
+      

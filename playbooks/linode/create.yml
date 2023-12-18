@@ -1,0 +1,22 @@
+---
+- name: Deploy k3s-agents infrastructure
+  hosts: localhost
+  # Create the group for all k3s nodes
+  vars:
+    nodes:
+  vars_files:
+    - config.yml
+  roles:
+    - role: infra
+      vars:
+        host_group: nodes
+
+- name: Provision linode instances
+  hosts: nodes
+  remote_user: root
+  vars_files:
+    - config.yml
+  vars:
+    ansible_ssh_private_key_file: "{{ ssh_key_output_path }}"
+  roles:
+    - provision

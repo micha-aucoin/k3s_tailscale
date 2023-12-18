@@ -1,0 +1,41 @@
+- name: Generate an OpenSSH keypair with the default values (4096 bits, rsa)
+  community.crypto.openssh_keypair:
+    path: "{{ ssh_key_output_path }}"
+  register: key_pair
+
+- name: Create a set of Linode instances in async
+  linode.cloud.instance:
+    label: "{{resource_prefix}}-{{item}}"
+    type: g6-nanode-1
+    region: us-central
+    image: linode/ubuntu22.04
+    private_ip: true
+    booted: true
+    authorized_keys:
+    - "{{ key_pair.public_key }}"
+
+    state: present
+
+  # Let's create these instances in async to speed up provisioning times
+  async: 120
+  poll: 0
+  changed_when: false
+  loop: "{{ range(0, num_server)|list }}"
+  register: instance_job
+
+- name: Wait for all instances to be created
+  async_status:
+    jid: "{{ async_result_item.ansible_job_id }}"
+  loop: "{{ instance_job.results }}"
+  loop_control:
+    loop_var: "async_result_item"
+  register: instance_create
+  until: instance_create.finished
+  retries: 30
+
+- name: Add instance to inventory
+  ansible.builtin.add_host:
+    name: '{{ item.instance.ipv4[0] }}'
+    groups: "{{ host_group }}"
+    ansible_ssh_extra_args: "-o StrictHostKeyChecking=no"
+  loop: "{{ instance_create.results }}"
