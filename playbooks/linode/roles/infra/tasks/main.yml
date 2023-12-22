@@ -13,6 +13,8 @@
     booted: true
     authorized_keys:
     - "{{ key_pair.public_key }}"
+    tags:
+    - "{{resource_prefix}}"
 
     state: present
 
@@ -38,4 +40,5 @@
     name: '{{ item.instance.ipv4[0] }}'
     groups: "{{ host_group }}"
     ansible_ssh_extra_args: "-o StrictHostKeyChecking=no"
+    instance_label: "{{ item.instance.label }}"
   loop: "{{ instance_create.results }}"

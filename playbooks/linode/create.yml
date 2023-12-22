@@ -1,5 +1,5 @@
 ---
-- name: Deploy k3s-agents infrastructure
+- name: Create linode instances
   hosts: localhost
   # Create the group for all k3s nodes
   vars:
@@ -13,10 +13,29 @@
 
 - name: Provision linode instances
   hosts: nodes
+  gather_facts: false
   remote_user: root
   vars_files:
     - config.yml
   vars:
     ansible_ssh_private_key_file: "{{ ssh_key_output_path }}"
+  pre_tasks:
+    - name: Wait for SSH to become available
+      wait_for_connection:
+        delay: 10  # Wait for 10 seconds before checking
+        timeout: 60  # Fail if SSH is not up after 60 seconds
+      retries: 5
+      delay: 10
   roles:
     - provision
+
+- name: Install Tailscale
+  hosts: nodes
+  remote_user: micha
+  vars_files:
+    - config.yml
+  vars:
+    ansible_ssh_private_key_file: "{{ private_key_file }}"
+  roles:
+    - tailscale
+    - artis3n.tailscale  

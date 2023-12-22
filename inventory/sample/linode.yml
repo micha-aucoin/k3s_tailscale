@@ -1,0 +1,4 @@
+plugin: linode.cloud.instance
+groups:
+  k3s-agent: "'k3s-agent' in (tags|list)"
+

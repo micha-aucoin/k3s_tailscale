@@ -1,9 +1,10 @@
 ---
 resource_prefix: k3s-agent
 num_server: 3
-ssh_key_output_path: ./node_ssh_key
+ssh_key_output_path: ~/k3s_tailscale/playbooks/linode/node_ssh_key
+private_key_file: ~/.ssh/ansible
 linode_apt_dependencies:
   - jq
 timezone: America/Chicago
-lindoe_user: micha
-linode_password: "{{ lookup('ansible.builtin.env', 'USER_PASSWORD') }}"
+lindoe_user: "{{ lookup('ansible.builtin.env', 'LINODE_USERNAME') }}"
+linode_password: "{{ lookup('ansible.builtin.env', 'LINODE_PASSWORD') }}"
