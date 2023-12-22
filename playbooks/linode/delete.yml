@@ -1,5 +1,25 @@
 ---
-- name: Delete k3s-agents infrastructure
+- name: Create linode instances
+  hosts: localhost
+  # Create the group for all k3s nodes
+  vars:
+    nodes:
+  vars_files:
+    - config.yml
+  roles:
+    - role: infra
+      vars:
+        host_group: nodes
+
+- name: Uninstall Tailscale
+  hosts: nodes
+  become: true
+  roles:
+    - role: artis3n.tailscale
+      vars:
+        state: absent
+
+- name: Delete Linode infrastructure
   hosts: localhost
   vars_files:
     - config.yml
