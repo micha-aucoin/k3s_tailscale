@@ -1,0 +1,102 @@
+---
+
+- name: Set Tailscale Vars
+  hosts: k3s_cluster
+  tasks:
+    - name: Grab Tailscale Status
+      ansible.builtin.command:
+        cmd: tailscale status --json
+      register: tailscale_status
+
+    - name: Parse JSON from tailscale_status
+      ansible.builtin.set_fact:
+        tailscale_ip: "{{ (tailscale_status.stdout | from_json)['Self']['TailscaleIPs'][0] }}"
+        tailscale_tag: "{{ (tailscale_status.stdout | from_json)['Self']['Tags'][0] }}"
+
+    - name: Determine groups 
+      ansible.builtin.set_fact:
+        dynamic_group: >
+          {{
+            'tailscale_server' if tailscale_tag == 'tag:server' else
+            'tailscale_agent' if tailscale_tag == 'tag:agent' else
+            None
+          }}
+
+- name: Dynamic Inventory
+  hosts: localhost
+  tasks:
+    - name: Add tailscale IP to inventory
+      add_host:
+        name: "{{ hostvars[item].tailscale_ip }}"
+        groups: 
+          - "{{ hostvars[item].dynamic_group }}"
+          - tailscale_k3s_cluster
+        ansible_ssh_extra_args: "-o StrictHostKeyChecking=no"
+        ansible_user: "micha"
+      loop: "{{ groups['k3s_cluster'] }}"
+      when: 
+        - hostvars[item].tailscale_ip is defined
+        - hostvars[item].tailscale_tag is defined
+        - hostvars[item].dynamic_group is defined
+      changed_when: False
+
+- name: Set up k3s cluster
+  hosts: tailscale_k3s_cluster
+  vars:
+    k3s_become: true
+    k3s_release_version: "v1.25.11+k3s1"
+    k3s_etcd_datastore: true
+    k3s_use_experimental: true
+    vpn_auth: "{{ 'name=tailscale,joinKey=' + lookup('ansible.builtin.env', 'TAILSCALE_VPN_AUTH') }}"
+    tailscale_user: "{{ lookup('ansible.builtin.env', 'TAILSCALE_USER') }}"
+    client_id: "{{ lookup('ansible.builtin.env', 'TAILSCALE_CLIENT_ID') }}"
+    client_secret: "{{ lookup('ansible.builtin.env', 'TAILSCALE_CLIENT_SECRET') }}"
+    k3s_server_manifests_templates:
+      - "templates/operator.yml.j2"
+      - "templates/authproxy-rbac.yml.j2"
+      - "templates/proxy.yml.j2"
+      - "templates/userspace-proxy.yml.j2"
+    k3s_server:
+      secrets-encryption: true
+      write-kubeconfig-mode: '0644'
+      vpn-auth: "{{ vpn_auth }}"
+      disable:
+        - servicelb
+        - traefik
+    k3s_agent:
+      vpn-auth: "{{ vpn_auth }}"
+  pre_tasks:
+    - name: Set each node to be a control node
+      ansible.builtin.set_fact:
+        k3s_control_node: true
+      when: inventory_hostname in groups['tailscale_server']
+  roles:
+    - role: xanmanning.k3s
+
+  tasks:
+    - name: Check if k3s.yaml exists
+      ansible.builtin.stat:
+        path: /etc/rancher/k3s/k3s.yaml
+      register: k3s_yaml_stat
+      tags: kubeconfig
+
+    - name: Ensure .kube directory exists
+      ansible.builtin.file:
+        path: "{{ ansible_user_dir }}/.kube"
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0755'
+      when: k3s_yaml_stat.stat.exists
+      tags: kubeconfig
+
+    - name: Move k3s kubeconfig to user's kube directory
+      ansible.builtin.copy:
+        src: /etc/rancher/k3s/k3s.yaml
+        dest: "{{ ansible_user_dir }}/.kube/config"
+        remote_src: true
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0600'
+      when: k3s_yaml_stat.stat.exists
+      tags: kubeconfig

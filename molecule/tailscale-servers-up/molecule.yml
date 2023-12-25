@@ -1,0 +1,107 @@
+---
+dependency:
+  name: galaxy
+  options:
+    role-file: ./requirements.yml
+    requirements-file: ./requirements.yml
+
+driver:
+  name: docker
+
+platforms:
+  - name: server1
+    image: ${MOLECULE_DISTRO:-ghcr.io/nestybox/ubuntu-jammy-systemd-docker:rodny-new}
+    command: ${MOLECULE_DOCKER_COMMAND:-""}
+    runtime: sysbox-runc
+    published_ports:
+      - 22/tcp
+    groups:
+      - server
+      - k3s_cluster
+    privileged: true
+    networks:
+      - name: k3snet
+
+  - name: server2
+    image: ${MOLECULE_DISTRO:-ghcr.io/nestybox/ubuntu-jammy-systemd-docker:rodny-new}
+    command: ${MOLECULE_DOCKER_COMMAND:-""}
+    runtime: sysbox-runc
+    published_ports:
+      - 22/tcp
+    groups:
+      - server
+      - k3s_cluster
+    privileged: true
+    networks:
+      - name: k3snet
+
+  - name: server3
+    image: ${MOLECULE_DISTRO:-ghcr.io/nestybox/ubuntu-jammy-systemd-docker:rodny-new}
+    command: ${MOLECULE_DOCKER_COMMAND:-""}
+    runtime: sysbox-runc
+    published_ports:
+      - 22/tcp
+    groups:
+      - server
+      - k3s_cluster
+    privileged: true
+    networks:
+      - name: k3snet
+
+  - name: agent1
+    image: ${MOLECULE_DISTRO:-ghcr.io/nestybox/ubuntu-jammy-systemd-docker:rodny-new}
+    command: ${MOLECULE_DOCKER_COMMAND:-""}
+    runtime: sysbox-runc
+    published_ports:
+      - 22/tcp
+    groups:
+      - agent
+      - k3s_cluster
+    privileged: true
+    networks:
+      - name: k3snet
+
+  - name: agent2
+    image: ${MOLECULE_DISTRO:-ghcr.io/nestybox/ubuntu-jammy-systemd-docker:rodny-new}
+    command: ${MOLECULE_DOCKER_COMMAND:-""}
+    runtime: sysbox-runc
+    published_ports:
+      - 22/tcp
+    groups:
+      - agent
+      - k3s_cluster
+    privileged: true
+    networks:
+      - name: k3snet
+
+  - name: agent3
+    image: ${MOLECULE_DISTRO:-ghcr.io/nestybox/ubuntu-jammy-systemd-docker:rodny-new}
+    command: ${MOLECULE_DOCKER_COMMAND:-""}
+    runtime: sysbox-runc
+    published_ports:
+      - 22/tcp
+    groups:
+      - agent
+      - k3s_cluster
+    privileged: true
+    networks:
+      - name: k3snet
+
+provisioner:
+  name: ansible
+
+verifier:
+  name: ansible
+
+scenario:
+  name: tailscale-servers-up
+  test_sequence:
+    - dependency
+    - destroy
+    - syntax
+    - create
+    - prepare
+    - converge
+    - verify
+    - cleanup
+    - destroy

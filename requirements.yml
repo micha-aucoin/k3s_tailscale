@@ -1,0 +1,12 @@
+---
+collections:
+  - name: https://github.com/ansible-collections/community.general
+    type: git
+  - name: https://github.com/ansible-collections/community.docker
+    type: git
+    
+roles:
+  - name: xanmanning.k3s
+    version: v3.4.2
+  - name: artis3n.tailscale
+    version: v4.2.3

@@ -1,0 +1,21 @@
+---
+
+- name: Cleanup
+  hosts: k3s_cluster
+  become: true
+  vars:
+    molecule_is_test: true
+    k3s_state: uninstalled
+    # k3s_release_version: "v1.21"
+    # k3s_etcd_datastore: true
+    # k3s_use_experimental: true
+  roles:
+    - role: xanmanning.k3s
+
+- name: Cleanup
+  hosts: k3s_cluster
+  tasks:
+    - name: De-register Tailscale node
+      become: true
+      ansible.builtin.command: tailscale logout
+      changed_when: false  

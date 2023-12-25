@@ -1,0 +1,16 @@
+frontend loadbalancer
+    bind *:6443
+    mode tcp
+    default_backend control_nodes
+    timeout client 1m
+
+backend control_nodes
+    mode tcp
+    balance roundrobin
+{% for host in groups['tailscale_hosts'] %}
+{% if hostvars[host].tailscale_tag == 'k3s-server' %}
+    server server{{ loop.index }} {{ host }}:6443 check
+{% endif %}
+{% endfor %}
+    timeout connect 30s
+    timeout server 30m

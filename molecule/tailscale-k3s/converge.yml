@@ -1,0 +1,68 @@
+---
+
+- name: Converge
+  hosts: k3s_cluster
+  tags: always
+  vars:
+    molecule_is_test: true
+    k3s_become: true
+    k3s_release_version: "v1.25.11+k3s1"
+    k3s_control_token: c34af018a2ed71404b19422686cb3c5e4381e739019b2a523b9556381e163061
+    k3s_etcd_datastore: true
+    k3s_use_experimental: true
+    ansible_user: 'admin'
+    ansible_become_pass: 'admin'
+    vpn_auth: "{{ 'name=tailscale,joinKey=' + lookup('ansible.builtin.env', 'TAILSCALE_VPN_AUTH') }}"
+    tailscale_user: "{{ lookup('ansible.builtin.env', 'TAILSCALE_USER') }}"
+    client_id: "{{ lookup('ansible.builtin.env', 'TAILSCALE_CLIENT_ID') }}"
+    client_secret: "{{ lookup('ansible.builtin.env', 'TAILSCALE_CLIENT_SECRET') }}"
+    k3s_server_manifests_templates:
+      - "templates/operator.yml.j2"
+      - "templates/authproxy-rbac.yml.j2"
+      - "templates/proxy.yml.j2"
+      - "templates/userspace-proxy.yml.j2"
+    k3s_server:
+      secrets-encryption: true
+      write-kubeconfig-mode: '0644'
+      vpn-auth: "{{ vpn_auth }}"
+      disable:
+        - servicelb
+        - traefik
+    k3s_agent:
+      vpn-auth: "{{ vpn_auth }}"
+  pre_tasks:
+    - name: Set each node to be a control node
+      ansible.builtin.set_fact:
+        k3s_control_node: true
+      when: inventory_hostname in groups['server']
+  roles:
+    - role: xanmanning.k3s
+
+  tasks:
+    - name: Check if k3s.yaml exists
+      ansible.builtin.stat:
+        path: /etc/rancher/k3s/k3s.yaml
+      register: k3s_yaml_stat
+      tags: kubeconfig
+
+    - name: Ensure .kube directory exists
+      ansible.builtin.file:
+        path: "{{ ansible_user_dir }}/.kube"
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0755'
+      when: k3s_yaml_stat.stat.exists
+      tags: kubeconfig
+
+    - name: Move k3s kubeconfig to user's kube directory
+      ansible.builtin.copy:
+        src: /etc/rancher/k3s/k3s.yaml
+        dest: "{{ ansible_user_dir }}/.kube/config"
+        remote_src: true
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0600'
+      when: k3s_yaml_stat.stat.exists
+      tags: kubeconfig
+

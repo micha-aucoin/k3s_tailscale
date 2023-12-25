@@ -1,0 +1,96 @@
+---
+- name: Set Vars
+  hosts: k3s_cluster
+  tasks:
+    - name: Set Tailscale IP address
+      ansible.builtin.command:
+        cmd: tailscale ip -4
+      register: tailscale_ip
+
+    - name: Grab Tailscale Status
+      ansible.builtin.command:
+        cmd: tailscale status --json
+      register: tailscale_status
+
+    - name: Parse JSON from tailscale_status
+      ansible.builtin.set_fact:
+        tailscale_tag: "{{ (tailscale_status.stdout | from_json)['Self']['Tags'][0] | regex_replace('^tag:\\s*', '') }}"
+
+- name: Set Hosts
+  hosts: localhost
+  tags: always
+  tasks:
+    - name: Add tailsclae ip to inventory
+      add_host:
+        name: "{{ hostvars[item].tailscale_ip.stdout }}"
+        groups: tailscale_hosts
+        ansible_ssh_extra_args: "-o StrictHostKeyChecking=no"
+        ansible_user: 'admin'
+        ansible_ssh_pass: 'admin'
+        ansible_become_pass: 'admin'
+        tailscale_tag: "{{ hostvars[item].tailscale_tag }}"
+      loop: "{{ groups['k3s_cluster'] }}"
+      when: hostvars[item].tailscale_ip.stdout is defined and hostvars[item].tailscale_tag is defined
+      changed_when: False
+
+- name: Prepare all nodes
+  hosts: tailscale_hosts
+  become: true
+  tasks:
+    - name: Ensure apt cache is updated
+      ansible.builtin.apt:
+        update_cache: true
+      when: ansible_pkg_mgr == 'apt'
+
+    - name: Ensure sudo is installed
+      community.general.apk:
+        name: sudo
+        state: present
+        update_cache: true
+      when: ansible_pkg_mgr == 'apk'
+
+    - name: Prepare Load Balancer | Ensure HAProxy is installed
+      ansible.builtin.package:
+        name: haproxy
+        state: present
+      when: tailscale_tag == 'k3s-loadbalancer'
+
+    - name: Prepare Load Balancer | Ensure HAProxy config directory exists
+      ansible.builtin.file:
+        path: /usr/local/etc/haproxy
+        state: directory
+        mode: 0755
+      when: tailscale_tag == 'k3s-loadbalancer'
+
+    - name: Prepare Load Balancer | Ensure HAProxy is configured
+      ansible.builtin.template:
+        src: haproxy-loadbalancer.conf.j2
+        dest: /usr/local/etc/haproxy/haproxy.cfg
+        mode: 0644
+      when: tailscale_tag == 'k3s-loadbalancer'
+      tags: config_haproxy
+
+    - name: Prepare Load Balancer | Ensure HAProxy service is started
+      ansible.builtin.command:
+        cmd: haproxy -D -f /usr/local/etc/haproxy/haproxy.cfg -p /var/run/haproxy.pid
+      args:
+        creates: /var/run/haproxy.pid
+      when: tailscale_tag == 'k3s-loadbalancer'
+
+    - name: Prepare server/agent | Ensure apt cache is updated and iptables is installed
+      ansible.builtin.apt:
+        name: iptables
+        state: present
+        update_cache: true
+      when: 
+        - ansible_pkg_mgr == 'apt'
+        - tailscale_tag == 'k3s-server' or tailscale_tag == 'k3s-agent'
+
+    - name: Prepare server/agent | Ensure iproute is installed
+      ansible.builtin.dnf:
+        name: iproute
+        state: present
+        update_cache: true
+      when: 
+        - ansible_pkg_mgr == 'dnf'
+        - tailscale_tag == 'k3s-server' or tailscale_tag == 'k3s-agent'
