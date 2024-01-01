@@ -186,7 +186,7 @@ class TailscaleInventory(object):
 
             # hostvars
             info = self.ts_namespace(device)
-            self.inventory["_meta"]["hostvars"][device["hostname"]] = info
+            self.inventory["_meta"]["hostvars"][host] = info
 
     def load_tailscale_variables_for_host(self):
         """Generate a JSON respone to a --host call"""
