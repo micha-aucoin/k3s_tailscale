@@ -1,16 +1,17 @@
-- name: Delete Linode instances in async
+- name: Create a set of Linode server and agent instances in async
   linode.cloud.instance:
-    label: "{{resource_prefix}}-{{item}}"
+    label: "{{ item.1 == 'server' and server_resource_prefix or agent_resource_prefix }}-{{ item.0 }}"
     state: absent
 
   # Let's create these instances in async to speed up provisioning times
   async: 120
   poll: 0
   changed_when: false
-  loop: "{{ range(0, num_server)|list }}"
+  loop: "{{ range(1, (num_server > num_agent) | ternary(num_server, num_agent) + 1)|list | product(['server', 'agent']) | list }}"
+  when: "(item.1 == 'server' and item.0 <= num_server) or (item.1 == 'agent' and item.0 <= num_agent)"
   register: instance_job
 
-- name: Wait for all instances to be deleted
+- name: Wait for all instances to be created
   async_status:
     jid: "{{ async_result_item.ansible_job_id }}"
   loop: "{{ instance_job.results }}"
@@ -19,3 +20,4 @@
   register: instance_create
   until: instance_create.finished
   retries: 30
+  when: "'ansible_job_id' in async_result_item"

@@ -15,7 +15,7 @@
 
 - name: Ensure user exists
   ansible.builtin.user:
-    name: "{{ lindoe_user }}"
+    name: "{{ linode_user }}"
     password: "{{ linode_password | password_hash('sha512') }}"
     state: present
     create_home: yes
@@ -23,13 +23,13 @@
 
 - name: Add user to sudo group
   ansible.builtin.user:
-    name: "{{ lindoe_user }}"
+    name: "{{ linode_user }}"
     groups: sudo
     append: yes
 
 - name: Upload public SSH key_pair
   ansible.builtin.authorized_key:
-    user: "{{ lindoe_user }}"
+    user: "{{ linode_user }}"
     state: present
     key: "{{ lookup('file', private_key_file + '.pub') }}"
   
