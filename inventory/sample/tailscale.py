@@ -59,7 +59,7 @@ class TailscaleManager:
 
     def show_device(self, device_id: str):
         resp = self.send(f"device/{device_id}")
-        return resp.get("device", {})
+        return resp
 
     def filter_by_tag(self, tag: str) -> list:
         devices = self.all_devices()
@@ -156,6 +156,9 @@ class TailscaleInventory(object):
 
     def add_host(self, group, host):
         """Helper method to reduce host duplication"""
+        if group.startswith("tag:"):
+            group = group[4:]  # Remove 'tag:' prefix
+
         if group not in self.inventory:
             self.add_inventory_group(key=group)
 
