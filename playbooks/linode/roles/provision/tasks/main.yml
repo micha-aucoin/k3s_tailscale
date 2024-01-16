@@ -15,24 +15,24 @@
 
 - name: Ensure user exists
   ansible.builtin.user:
-    name: "{{ linode_user }}"
-    password: "{{ linode_password | password_hash('sha512') }}"
+    name: "{{ the_user }}"
+    password: "{{ the_password | password_hash('sha512') }}"
     state: present
     create_home: yes
     shell: /bin/bash
 
 - name: Add user to sudo group
   ansible.builtin.user:
-    name: "{{ linode_user }}"
+    name: "{{ the_user }}"
     groups: sudo
     append: yes
 
 - name: Upload public SSH key_pair
   ansible.builtin.authorized_key:
-    user: "{{ linode_user }}"
+    user: "{{ the_user }}"
     state: present
     key: "{{ lookup('file', private_key_file + '.pub') }}"
-  
+
 - name: Disable password authentication in SSH
   ansible.builtin.lineinfile:
     path: /etc/ssh/sshd_config

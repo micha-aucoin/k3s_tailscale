@@ -44,6 +44,7 @@
     groups: 
       - "{{ host_group }}"
       - "{{ async_result_item.instance.tags[0] }}"
+      - "{{ async_result_item.instance.tags[1] }}"
     ansible_ssh_extra_args: "-o StrictHostKeyChecking=no"
     instance_label: "{{ async_result_item.instance.label }}"
   loop: "{{ instance_create.results }}"

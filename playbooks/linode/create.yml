@@ -23,8 +23,8 @@
     - block:
         - name: Wait for SSH to become available
           wait_for_connection:
-            delay: 10  # Wait for 10 seconds before checking
-            timeout: 60  # Fail if SSH is not up after 60 seconds
+            delay: 5 # Wait for 5 seconds before checking
+            timeout: 30 # Fail if SSH is not up after 30 seconds
           retries: 5
           delay: 10
 
@@ -36,14 +36,14 @@
         - name: Handle SSH wait failure
           debug:
             msg: "root SSH connection failed. Skipping remaining tasks in this play."
-    
+
 - name: Install Tailscale
   hosts: linode_cluster
-  remote_user: "{{ linode_user }}"
+  remote_user: "{{ the_user }}"
   vars_files:
     - config.yml
   vars:
-    ansible_ssh_private_key_file: "{{ private_key_file }}" 
+    ansible_ssh_private_key_file: "{{ private_key_file }}"
   pre_tasks:
     - name: Use tailscale service
       ansible.builtin.set_fact:
@@ -52,14 +52,17 @@
     - name: Set custom up argument for server
       ansible.builtin.set_fact:
         tailscale_args: "--advertise-tags tag:k3s-server,tag:k3s-cluster"
-      when: inventory_hostname in groups['k3s-server']
+      when: 
+        - "'k3s-server' in groups"
+        - inventory_hostname in groups['k3s-server']
 
-    - name: Set custom up argument
+    - name: Set custom up argument for agent
       ansible.builtin.set_fact:
         tailscale_args: "--advertise-tags tag:k3s-agent,tag:k3s-cluster"
-      when: inventory_hostname in groups['k3s-agent']
+      when: 
+        - "'k3s-agent' in groups"
+        - inventory_hostname in groups['k3s-agent']
 
     - name: Install Tailscale with custom up argument
       ansible.builtin.include_role:
         name: artis3n.tailscale
-           
