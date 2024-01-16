@@ -1,7 +1,7 @@
 ---
 
 - name: Install Tailscale
-  hosts: k3s_cluster
+  hosts: k3s-cluster
   tasks:
     - name: Use tailscale service
       ansible.builtin.set_fact:
