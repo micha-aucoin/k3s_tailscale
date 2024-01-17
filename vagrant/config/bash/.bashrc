@@ -35,7 +35,6 @@ PROMPT_COMMAND="update_prompt; $PROMPT_COMMAND"
 mk_conda() {
     conda create -n $1 python=3.10
 }
-
 conda_rm() {
     conda remove -n $1 --all
 }
