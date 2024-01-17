@@ -5,6 +5,7 @@ Vagrant.configure("2") do |config|
   config.vm.box = "ubuntu/bionic64"
   config.vm.hostname = 'ubuntu1804'
   config.vm.network "public_network"
+  config.vm.synced_folder "..", "/home/vagrant/k3s_tailscale"
 
   config.vm.provision "install_pkgs", type: "shell" do |s|
     s.path = "config/pkg_mgmt/install.sh"
@@ -48,9 +49,12 @@ Vagrant.configure("2") do |config|
     s.env = {"MINICONDA_VERSION" => "py310_23.11.0-2"}
   end
 
-  config.vm.provision "install_miniconda", type: "shell" do |s|
-    s.path = "config/install/miniconda.sh"
-    s.env = {"MINICONDA_VERSION" => "py310_23.11.0-2"}
+  config.vm.provision "set_timezone", type: "shell" do |s|
+    s.inline = "timedatectl set-timezone 'America/Chicago'"
+  end
+
+  config.vm.provision "set_timezone", type: "shell" do |s|
+    s.inline = "ssh-keygen -t ed25519 -f '/home/vagrant/.ssh/ubuntu-vagrant' -N '' -C 'ubuntu-vagrant'"
   end
 
   config.vm.provision "reload_bashrc", type: "shell" do |s|
@@ -68,14 +72,6 @@ Vagrant.configure("2") do |config|
       cat /vagrant/config/bash/.bashrc >> /home/vagrant/.bashrc
       cat /vagrant/config/bash/.bash_aliases > /home/vagrant/.bash_aliases
     SHELL
-  end
-
-  config.vm.provision "set_timezone", type: "shell" do |s|
-    s.inline = "timedatectl set-timezone 'America/Chicago'"
-  end
-
-  config.vm.provision "set_timezone", type: "shell" do |s|
-    s.inline = "ssh-keygen -t ed25519 -f '/home/vagrant/.ssh/ubuntu-vagrant' -N '' -C 'ubuntu-vagrant'"
   end
 
 end
