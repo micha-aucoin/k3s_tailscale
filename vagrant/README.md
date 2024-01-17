@@ -33,9 +33,5 @@ function fn-powershell {
 
 2. create ansible key
 
-3. conda env ansible
-    - ansible
-    - molecule-plugins
-
 4. secret env files
 

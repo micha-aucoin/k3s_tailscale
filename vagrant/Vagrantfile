@@ -74,5 +74,19 @@ Vagrant.configure("2") do |config|
     SHELL
   end
 
+  config.vm.provision "ansible_venv", type: "shell", privileged: false do |s|
+    s.inline = <<-SHELL
+      # Source Conda initialization script
+      source /home/vagrant/miniconda3/etc/profile.d/conda.sh || echo "Conda init script not found!"
+
+      # Create and activate Conda environment
+      conda create -n ansible python=3.10 -y
+      conda activate ansible
+
+      # Install Ansible and Molecule
+      pip install ansible molecule-plugins
+    SHELL
+  end
+
 end
 
