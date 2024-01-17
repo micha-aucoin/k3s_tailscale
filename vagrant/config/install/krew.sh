@@ -24,6 +24,7 @@ if ! is_krew_installed; then
     echo "Installing Krew..."
     install_krew
     echo 'export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"' >> /home/vagrant/.bashrc
+    source home/vagrant/.bashrc
 else
     echo "Krew is already installed."
 fi
@@ -50,4 +51,5 @@ done
 
 # change ownership of .krew to vagrant user
 sudo chown -R vagrant:vagrant "${HOME}/.krew"
+
 echo "Krew and plugins installation complete."
