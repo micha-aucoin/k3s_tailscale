@@ -32,14 +32,10 @@ source /usr/local/bin/kube-ps1
 PROMPT_COMMAND="update_prompt; $PROMPT_COMMAND"
 
 # --- PERSONAL NOTES ---
-create_conda_env() {
-    local env_name=$1
-    if [ -z "$env_name" ]; then
-        echo "No environment name provided."
-        return 1
-    fi
-    echo "Creating new Conda environment: $env_name"
-    conda create -n "$env_name" python=3.10
-    echo "Environment $env_name created successfully."
+mk_conda() {
+    conda create -n $1 python=3.10
 }
 
+conda_rm() {
+    conda remove -n $1 --all
+}
