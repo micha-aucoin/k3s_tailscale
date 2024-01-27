@@ -60,12 +60,12 @@ class TailscaleManager:
     def show_device(self, device_id: str):
         resp = self.send(f"device/{device_id}")
         return resp
-
-    def filter_by_tag(self, tag: str) -> list:
+    
+    def filter_by_hostname(self, hostname: str) -> list:
         devices = self.all_devices()
         filtered_devices = []
         for device in devices:
-            if "tags" in device and tag in device["tags"]:
+            if "hostname" in device and hostname in device["hostname"]:
                 filtered_devices.append(device)
         return filtered_devices
 
@@ -98,7 +98,7 @@ class TailscaleInventory(object):
         if self.args.host:
             json_data = self.load_tailscale_variables_for_host()
         else:
-            self.load_from_tailscale("k3s-cluster")
+            self.load_from_tailscale(resource="k3s")
             self.build_inventory()
             json_data = self.inventory
 
@@ -145,8 +145,8 @@ class TailscaleInventory(object):
 
     def load_from_tailscale(self, resource: str = None) -> dict:
         """Get JSON from Tailscale API"""
-        if resource == "k3s-cluster" or resource is None:
-            self.data["k3s-cluster"] = self.manager.filter_by_tag(tag="tag:k3s-cluster")
+        if resource == "k3s" or resource is None:
+            self.data['k3s'] = self.manager.filter_by_hostname(hostname="k3s")
 
     def add_inventory_group(self, key):
         """Method to create group dict"""
@@ -156,8 +156,6 @@ class TailscaleInventory(object):
 
     def add_host(self, group, host):
         """Helper method to reduce host duplication"""
-        if group.startswith("tag:"):
-            group = group[4:]  # Remove 'tag:' prefix
 
         if group not in self.inventory:
             self.add_inventory_group(key=group)
@@ -176,16 +174,23 @@ class TailscaleInventory(object):
             "_meta": {"hostvars": {}},
         }
 
-        for device in self.data["k3s-cluster"]:
+        for device in self.data['k3s']:
             host = device["addresses"][0]
+            # host = device["hostname"]
 
             self.inventory["all"]["hosts"].append(host)
 
-            self.add_host(group=device["id"], host=host)
+            if "k3s" in device["hostname"]:
+                group = device["hostname"].split("-")[0]
+                self.add_host(group=group, host=host)
 
-            if device["tags"]:
-                for tag in device["tags"]:
-                    self.add_host(group=tag, host=host)
+            if "server" in device["hostname"]:
+                group = device["hostname"].split("-")[1]
+                self.add_host(group=group, host=host)
+
+            if "agent" in device["hostname"]:
+                group = device["hostname"].split("-")[1]
+                self.add_host(group=group, host=host)
 
             # hostvars
             info = self.ts_namespace(device)
