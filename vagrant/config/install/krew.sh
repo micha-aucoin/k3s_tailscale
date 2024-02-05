@@ -24,7 +24,6 @@ if ! is_krew_installed; then
     echo "Installing Krew..."
     install_krew
     echo 'export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"' >> /home/vagrant/.bashrc
-    source home/vagrant/.bashrc
 else
     echo "Krew is already installed."
 fi
@@ -37,6 +36,7 @@ is_plugin_installed() {
 # Function to install a krew plugin
 install_plugin() {
     if ! is_plugin_installed "$1"; then
+        export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"
         echo "Installing krew plugin: $1"
         kubectl krew install "$1"
     else

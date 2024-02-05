@@ -2,8 +2,8 @@
 # vi: set ft=ruby :
 
 Vagrant.configure("2") do |config|
-  config.vm.box = "ubuntu/bionic64"
-  config.vm.hostname = 'ubuntu1804'
+  config.vm.box = "bento/ubuntu-22.04"
+  config.vm.hostname = 'ubuntu2204'
   config.vm.network "public_network"
   config.vm.synced_folder "..", "/home/vagrant/k3s_tailscale"
 
@@ -53,8 +53,8 @@ Vagrant.configure("2") do |config|
     s.inline = "timedatectl set-timezone 'America/Chicago'"
   end
 
-  config.vm.provision "set_timezone", type: "shell" do |s|
-    s.inline = "ssh-keygen -t ed25519 -f '/home/vagrant/.ssh/ubuntu-vagrant' -N '' -C 'ubuntu-vagrant'"
+  config.vm.provision "ssh_keygen", type: "shell", privileged: false do |s|
+    s.inline = "ssh-keygen -t ed25519 -f '/home/vagrant/.ssh/ansible-vagrant' -N '' -C 'ansible-vagrant'"
   end
 
   config.vm.provision "reload_bashrc", type: "shell" do |s|
@@ -80,11 +80,11 @@ Vagrant.configure("2") do |config|
       source /home/vagrant/miniconda3/etc/profile.d/conda.sh || echo "Conda init script not found!"
 
       # Create and activate Conda environment
-      conda create -n ansible python=3.10 -y
+      conda create -n ansible python=3.11 -y
       conda activate ansible
 
       # Install Ansible and Molecule
-      pip install ansible molecule-plugins
+      pip install -r /vagrant/config/ansible/requirements.txt
     SHELL
   end
 
