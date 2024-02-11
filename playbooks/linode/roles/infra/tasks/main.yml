@@ -6,7 +6,7 @@
 - name: Create a set of Linode server and agent instances in async
   linode.cloud.instance:
     label: "{{ item.1 == 'server' and server_resource_prefix or agent_resource_prefix }}-{{ item.0 }}"
-    type: g6-nanode-1
+    type: "{{ linode_type }}"
     region: us-central
     image: linode/ubuntu22.04
     private_ip: true

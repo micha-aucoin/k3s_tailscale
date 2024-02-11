@@ -1,10 +1,11 @@
 ---
 server_resource_prefix: k3s-server
 agent_resource_prefix: k3s-agent
-num_server: 0
+num_server: 1
 num_agent: 3
-ssh_key_output_path: ~/k3s_tailscale/playbooks/linode/node_ssh_key
-private_key_file: ~/.ssh/ansible
+linode_type: g6-standard-1
+ssh_key_output_path: ~/.ssh/linode_ssh_key
+private_key_file: ~/.ssh/ansible-vagrant
 linode_apt_dependencies:
   - jq
 timezone: America/Chicago
