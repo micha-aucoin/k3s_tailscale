@@ -6,6 +6,13 @@ metadata:
   tags:
     - ansible
     - deployment
+  labels:
+    backstage.io/kubernetes-id: ansible-playbook-example
+  annotations:
+    backstage.io/kubernetes-id: ansible-playbook-example
+    backstage.io/kubernetes-namespace: ansible-playbook-example
+    janus-idp.io/tekton : ansible-playbook-example
+    backstage.io/kubernetes-label-selector: 'app=my-app,component=front-end'
 spec:
   type: service
   lifecycle: experimental
