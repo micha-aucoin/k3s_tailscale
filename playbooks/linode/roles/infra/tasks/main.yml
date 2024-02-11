@@ -1,0 +1,53 @@
+- name: Generate an OpenSSH keypair with the default values (4096 bits, rsa)
+  community.crypto.openssh_keypair:
+    path: "{{ ssh_key_output_path }}"
+  register: key_pair
+
+- name: Create a set of Linode server and agent instances in async
+  linode.cloud.instance:
+    label: "{{ item.1 == 'server' and server_resource_prefix or agent_resource_prefix }}-{{ item.0 }}"
+    type: "{{ linode_type }}"
+    region: us-central
+    image: linode/ubuntu22.04
+    private_ip: true
+    booted: true
+    authorized_keys:
+    - "{{ key_pair.public_key }}"
+    tags:
+    - "{{ item.1 == 'server' and server_resource_prefix or agent_resource_prefix }}"
+    - "k3s-cluster"
+
+    state: present
+
+  # Let's create these instances in async to speed up provisioning times
+  async: 120
+  poll: 0
+  changed_when: false
+  loop: "{{ range(1, (num_server > num_agent) | ternary(num_server, num_agent) + 1)|list | product(['server', 'agent']) | list }}"
+  when: "(item.1 == 'server' and item.0 <= num_server) or (item.1 == 'agent' and item.0 <= num_agent)"
+  register: instance_job
+
+- name: Wait for all instances to be created
+  async_status:
+    jid: "{{ async_result_item.ansible_job_id }}"
+  loop: "{{ instance_job.results }}"
+  loop_control:
+    loop_var: "async_result_item"
+  register: instance_create
+  until: instance_create.finished
+  retries: 30
+  when: "'ansible_job_id' in async_result_item"
+
+- name: Add instance to inventory
+  ansible.builtin.add_host:
+    name: '{{ async_result_item.instance.ipv4[0] }}'
+    groups: 
+      - "{{ host_group }}"
+      - "{{ async_result_item.instance.tags[0] }}"
+      - "{{ async_result_item.instance.tags[1] }}"
+    ansible_ssh_extra_args: "-o StrictHostKeyChecking=no"
+    instance_label: "{{ async_result_item.instance.label }}"
+  loop: "{{ instance_create.results }}"
+  when: "'instance' in async_result_item"
+  loop_control:
+    loop_var: "async_result_item"

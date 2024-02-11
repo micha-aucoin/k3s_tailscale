@@ -1,0 +1,54 @@
+---
+- name: Create linode instances
+  hosts: localhost
+  # Create the group for all k3s nodes
+  vars:
+    linode_cluster:
+  vars_files:
+    - config.yml
+  roles:
+    - role: infra
+      vars:
+        host_group: linode_cluster
+
+- name: Provision linode instances if root access is granted
+  hosts: linode_cluster
+  gather_facts: false
+  remote_user: root
+  vars_files:
+    - config.yml
+  vars:
+    ansible_ssh_private_key_file: "{{ ssh_key_output_path }}"
+  tasks:
+    - block:
+        - name: Wait for SSH to become available
+          wait_for_connection:
+            delay: 5 # Wait for 5 seconds before checking
+            timeout: 5 # Fail if SSH is not up after 30 seconds
+          retries: 5
+          delay: 5
+
+        # Additional tasks will go here
+        - include_role:
+            name: provision
+
+      rescue:
+        - name: Handle SSH wait failure
+          debug:
+            msg: "root SSH connection failed. Skipping remaining tasks in this play."
+
+- name: Install Tailscale
+  hosts: linode_cluster
+  remote_user: "{{ the_user }}"
+  vars_files:
+    - config.yml
+  vars:
+    ansible_ssh_private_key_file: "{{ private_key_file }}"
+  pre_tasks:
+    - name: Use tailscale service
+      ansible.builtin.set_fact:
+        tailscale_authkey: "{{ lookup('ansible.builtin.env', 'TAILSCALE_KEY') }}"
+
+    - name: Install Tailscale with custom up argument
+      ansible.builtin.include_role:
+        name: artis3n.tailscale

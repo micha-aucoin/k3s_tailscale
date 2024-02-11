@@ -1,0 +1,13 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ansible-playbook-example
+  description: "Ansible playbook for deploying X service"
+  tags:
+    - ansible
+    - deployment
+spec:
+  type: service
+  lifecycle: experimental
+  owner: x-team
+  definition: A repository containing Ansible playbook for deploying X service

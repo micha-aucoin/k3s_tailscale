@@ -1,0 +1,49 @@
+# - name: Update APT packages and install docker
+#   ansible.builtin.apt:
+#     name: "{{ linode_apt_dependencies }}"
+#     update_cache: yes
+#     state: present
+
+- name: Set timezone
+  ansible.builtin.timezone:
+    name: "{{ timezone }}"
+
+- name: Set custom hostname
+  ansible.builtin.hostname:
+    name: "{{ hostvars[inventory_hostname].instance_label }}"
+  when: inventory_hostname in play_hosts
+
+- name: Ensure user exists
+  ansible.builtin.user:
+    name: "{{ the_user }}"
+    password: "{{ the_password | password_hash('sha512') }}"
+    state: present
+    create_home: yes
+    shell: /bin/bash
+
+- name: Add user to sudo group
+  ansible.builtin.user:
+    name: "{{ the_user }}"
+    groups: sudo
+    append: yes
+
+- name: Upload public SSH key_pair
+  ansible.builtin.authorized_key:
+    user: "{{ the_user }}"
+    state: present
+    key: "{{ lookup('file', private_key_file + '.pub') }}"
+
+- name: Disable password authentication in SSH
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?PasswordAuthentication'
+    line: 'PasswordAuthentication no'
+    state: present
+
+- name: Disable root login in SSH
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?PermitRootLogin'
+    line: 'PermitRootLogin no'
+    state: present
+  notify: restart sshd

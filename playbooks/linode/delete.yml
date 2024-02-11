@@ -1,0 +1,8 @@
+---
+- name: Delete Linode infrastructure
+  hosts: localhost
+  vars_files:
+    - config.yml
+  roles:
+    - role: destroy
+      

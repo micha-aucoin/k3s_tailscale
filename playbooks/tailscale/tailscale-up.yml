@@ -1,0 +1,15 @@
+---
+
+- name: Install Tailscale
+  hosts: k3s
+  vars:
+    ansible_user: "micha"
+    ansible_ssh_extra_args: "-o StrictHostKeyChecking=no"
+  tasks:
+    - name: Use tailscale service
+      ansible.builtin.set_fact:
+        tailscale_authkey: "{{ lookup('ansible.builtin.env', 'TAILSCALE_KEY') }}"
+
+    - name: Install Tailscale with custom up argument
+      ansible.builtin.include_role:
+        name: artis3n.tailscale

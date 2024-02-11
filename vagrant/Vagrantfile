@@ -1,0 +1,92 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+  config.vm.box = "bento/ubuntu-22.04"
+  config.vm.hostname = 'ubuntu2204'
+  config.vm.network "public_network"
+  config.vm.synced_folder "..", "/home/vagrant/k3s_tailscale"
+
+  config.vm.provision "install_pkgs", type: "shell" do |s|
+    s.path = "config/pkg_mgmt/install.sh"
+  end
+
+  config.vm.provision "install_docker", type: "shell" do |s|
+    s.path = "config/install/docker.sh"
+  end
+
+  config.vm.provision "install_kubectl", type: "shell", privileged: false do |s|
+    s.path = "config/install/kubectl.sh"
+  end
+
+  config.vm.provision "install_helm", type: "shell" do |s|
+    s.path = "config/install/helm.sh"
+    s.env = {"HELM_VERSION" => "3.9.0"}
+  end
+
+  config.vm.provision "install_krew", type: "shell", privileged: false do |s|
+    s.path = "config/install/krew.sh"
+    s.env = {"KREW_PLUGINS" => "ctx ns stern view-secret"}
+  end
+
+  config.vm.provision "install_tekton_cli", type: "shell", privileged: false do |s|
+    s.path = "config/install/tekton_cli.sh"
+    s.env = {"TEKTON_CLI_VERSION" => "0.31.1"}
+  end
+
+  config.vm.provision "install_kube_ps1", type: "shell" do |s|
+    s.path = "config/install/kube_ps1.sh"
+    s.env = {"KUBE_PS1_VERSION" => "0.8.0"}
+  end
+
+  config.vm.provision "install_k9s", type: "shell" do |s|
+    s.path = "config/install/k9s.sh"
+    s.env = {"K9S_VERSION" => "0.26.0"}
+  end
+
+  config.vm.provision "install_miniconda", type: "shell", privileged: false do |s|
+    s.path = "config/install/miniconda.sh"
+    s.env = {"MINICONDA_VERSION" => "py310_23.11.0-2"}
+  end
+
+  config.vm.provision "set_timezone", type: "shell" do |s|
+    s.inline = "timedatectl set-timezone 'America/Chicago'"
+  end
+
+  config.vm.provision "ssh_keygen", type: "shell", privileged: false do |s|
+    s.inline = "ssh-keygen -t ed25519 -f '/home/vagrant/.ssh/ansible-vagrant' -N '' -C 'ansible-vagrant'"
+  end
+
+  config.vm.provision "reload_bashrc", type: "shell" do |s|
+    s.inline = <<-SHELL
+      # Define a marker
+      MARKER="# --- BEGIN VAGRANT CUSTOM BASHRC ---"
+
+      # Locate the marker; if it exists, truncate the file from that line
+      if grep -q "$MARKER" /home/vagrant/.bashrc; then
+        sed -i '/^# --- BEGIN VAGRANT CUSTOM BASHRC ---/,$d' /home/vagrant/.bashrc
+      fi
+
+      # Append the marker and then new content
+      echo "$MARKER" >> /home/vagrant/.bashrc
+      cat /vagrant/config/bash/.bashrc >> /home/vagrant/.bashrc
+      cat /vagrant/config/bash/.bash_aliases > /home/vagrant/.bash_aliases
+    SHELL
+  end
+
+  config.vm.provision "ansible_venv", type: "shell", privileged: false do |s|
+    s.inline = <<-SHELL
+      # Source Conda initialization script
+      source /home/vagrant/miniconda3/etc/profile.d/conda.sh || echo "Conda init script not found!"
+
+      # Create and activate Conda environment
+      conda create -n ansible python=3.11 -y
+      conda activate ansible
+
+      # Install Ansible and Molecule
+      pip install -r /vagrant/config/ansible/requirements.txt
+    SHELL
+  end
+
+end
+
