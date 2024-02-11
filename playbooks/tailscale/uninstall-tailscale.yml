@@ -1,7 +1,9 @@
 ---
 - name: Uninstall Tailscale
-  hosts: k3s-cluster
+  hosts: k3s
   become: true
+  vars:
+    ansible_user: "micha"
   roles:
     - role: artis3n.tailscale
       vars:
