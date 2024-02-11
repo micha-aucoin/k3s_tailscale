@@ -1,8 +1,9 @@
 ---
 - name: Uninstall K3s-Cluster
-  hosts: k3s-cluster
+  hosts: k3s
   become: true
   vars:
+    ansible_user: "micha"
     ansible_ssh_extra_args: "-o StrictHostKeyChecking=no"
   roles:
     - role: xanmanning.k3s

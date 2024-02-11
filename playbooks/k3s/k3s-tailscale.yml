@@ -1,5 +1,5 @@
 - name: Set up k3s cluster
-  hosts: k3s-cluster
+  hosts: k3s
   become: true
   vars:
     ansible_user: "micha"
@@ -7,16 +7,10 @@
     ansible_ssh_extra_args: "-o StrictHostKeyChecking=no"
     k3s_become: true
     k3s_release_version: "v1.26.12+k3s1"
-    k3s_etcd_datastore: true
+    k3s_etcd_datastore: false
     vpn_auth: "{{ 'name=tailscale,joinKey=' + lookup('ansible.builtin.env', 'TAILSCALE_VPN_AUTH') }}"
-    tailscale_user: "{{ lookup('ansible.builtin.env', 'TAILSCALE_USER') }}"
     client_id: "{{ lookup('ansible.builtin.env', 'TAILSCALE_CLIENT_ID') }}"
     client_secret: "{{ lookup('ansible.builtin.env', 'TAILSCALE_CLIENT_SECRET') }}"
-    k3s_server_manifests_templates:
-      - "templates/operator.yml.j2"
-      - "templates/authproxy-rbac.yml.j2"
-      - "templates/proxy.yml.j2"
-      - "templates/userspace-proxy.yml.j2"
     k3s_server:
       secrets-encryption: true
       vpn-auth: "{{ vpn_auth }}"
@@ -25,10 +19,13 @@
         - traefik
     k3s_agent:
       vpn-auth: "{{ vpn_auth }}"
+    k3s_server_manifests_templates:
+      - "templates/operator.yml.j2"
+      - "templates/authproxy-rbac.yml.j2"
   pre_tasks:
     - name: Set each node to be a control node
       ansible.builtin.set_fact:
         k3s_control_node: true
-      when: inventory_hostname in groups['k3s-server']
+      when: inventory_hostname in groups['server']
   roles:
     - role: xanmanning.k3s
