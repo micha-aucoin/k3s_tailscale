@@ -16,5 +16,5 @@ metadata:
 spec:
   type: service
   lifecycle: experimental
-  owner: x-team
+  owner: guest
   definition: A repository containing Ansible playbook for deploying X service
