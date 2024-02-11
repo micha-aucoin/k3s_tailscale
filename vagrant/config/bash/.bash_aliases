@@ -1,4 +1,4 @@
-alias ssha='eval $(ssh-agent -s) && ssh-add ~/.ssh/ubuntu-vagrant'
+alias ssha='eval $(ssh-agent -s) && ssh-add ~/.ssh/ansible-vagrant'
 
 alias k="kubectl"
 alias kns="kubectl ns"
